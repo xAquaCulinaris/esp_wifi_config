@@ -1,16 +1,20 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <espnow.h>
 #include <FS.h> // For Filesystem
+#include "esp_now.h"
 
 bool loadFromSpiffs(String path);
 void cresedentails_received();
 
-
-//ESP-WLAN Konfiguration
+//ESP-Accesspoint Configuration
 const char *ssid = "Gasanalyser Config";
 const char *password = "12345678";
 
-//ESP-Web-Server Konfiguration
+String set_ssid = "";
+String set_password = "";
+
+//ESP-Web-Server Configuration
 ESP8266WebServer server(80);
 
 void handleWebRequests()
@@ -38,11 +42,14 @@ void handleSubmit()
 //get cresedentails got "get"
 void cresedentails_received()
 {
+  set_ssid = server.arg("ssid");
+  set_password = server.arg("password");
+
   Serial.print("ssid: ");
-  Serial.println(server.arg("ssid"));
+  Serial.println(set_ssid);
 
   Serial.print("password: ");
-  Serial.println(server.arg("password"));
+  Serial.println(set_password);
 }
 
 //initialise filesystem
@@ -50,26 +57,7 @@ void initialise_filesystem()
 {
   SPIFFS.begin();
   Serial.println("Filesystem Initialised");
-}
-
-//connect to wifi
-void connect_wifi()
-{
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
-
   Serial.println("");
-  Serial.println("Connected to Wifi");
-  Serial.println("IP-Addresse: ");
-  Serial.println(WiFi.localIP());
 }
 
 void create_accesspoint()
@@ -78,8 +66,7 @@ void create_accesspoint()
   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssid, password);
   Serial.println("Accesspoint is set up");
-
-  
+  Serial.println("");
 }
 
 //initialise webserver
@@ -91,6 +78,7 @@ void initialise_webserver()
   server.onNotFound(handleWebRequests);
   server.begin();
   Serial.println("Webserver is set up");
+  Serial.println("");
 }
 
 void setup()
@@ -103,7 +91,7 @@ void setup()
   //connect_wifi();
   create_accesspoint();
   initialise_webserver();
-
+  setup_espnow();
 
   IPAddress ip_adress = WiFi.softAPIP();
   Serial.print("Connect to: ");
@@ -114,6 +102,11 @@ void setup()
 void loop()
 {
   server.handleClient();
+
+  if (set_ssid != "" && set_password != "")
+  {
+    send_data(set_ssid, set_password);
+  }
 }
 
 //load files from spiffs
